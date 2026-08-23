@@ -1,27 +1,22 @@
 import streamlit as st
-from streamlit_sortables import sort_items
 
 st.title("🏆 Aunt Ranking Board")
-st.write("Drag and drop your aunts to rank them:")
+st.write("Use the select boxes below to rank each aunt from 1 to 5:")
 
-# Initial ranking setup (Janet and Cinta tied)
-aunts_ranking = [
-    {
-        "header": "Current Rankings",
-        "items": ["Nora", "Anne", ["Janet", "Cinta"], "Margo", "Maureen"],
-    }
-]
+# Define our aunts
+aunts = ["Nora", "Anne", "Janet & Cinta (Tie)", "Margo", "Maureen"]
 
-# Render the interactive drag-and-drop component
-sorted_aunts = sort_items(aunts_ranking, direction="vertical")
+# Create ranking slots
+rank_1 = st.selectbox("Rank #1", aunts, index=0)
+rank_2 = st.selectbox("Rank #2", aunts, index=1)
+rank_3 = st.selectbox("Rank #3", aunts, index=2)
+rank_4 = st.selectbox("Rank #4", aunts, index=3)
+rank_5 = st.selectbox("Rank #5", aunts, index=4)
 
-# Display the final dynamic order
 st.markdown("---")
-st.subheader("Live Order Results:")
-if sorted_aunts and len(sorted_aunts[0]["items"]) > 0:
-    for index, aunt in enumerate(sorted_aunts[0]["items"], start=1):
-        if isinstance(aunt, list):
-            st.write(f"**#{index} (Tie):** {', '.join(aunt)}")
-        else:
-            st.write(f"**#{index}:** {aunt}")
+st.subheader("📋 Your Final Ranking Result:")
 
+# Display the final order clearly
+final_list = [rank_1, rank_2, rank_3, rank_4, rank_5]
+for i, aunt in enumerate(final_list, 1):
+  st.write(f"**#{i}:** {aunt}")
