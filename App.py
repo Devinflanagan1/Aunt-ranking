@@ -1,31 +1,7 @@
-import json
-import os
-from datetime import datetime
 import streamlit as st
 import streamlit.components.v1 as components
 
 st.set_page_config(page_title="Irish Aunt Leaderboard", layout="centered")
-
-HISTORY_FILE = "ranking_history.json"
-
-
-def load_history():
-  if os.path.exists(HISTORY_FILE):
-    try:
-      with open(HISTORY_FILE, "r") as f:
-        return json.load(f)
-    except:
-      return []
-  return []
-
-
-def save_history_entry(order_list):
-  history = load_history()
-  now = datetime.now().strftime("%B %d, %Y at %I:%M %p")
-  history.insert(0, {"time": now, "order": order_list})
-  with open(HISTORY_FILE, "w") as f:
-    json.dump(history, f)
-
 
 st.markdown(
     """
@@ -33,34 +9,19 @@ st.markdown(
     .stApp { background-color: #F5F5DC; }
     h1 { color: #165B33; font-family: sans-serif; text-align: center; }
     p { color: #333; text-align: center; }
-    .history-box {
-        background: #ffffff; padding: 14px; border-radius: 8px; margin-bottom: 12px;
-        font-size: 15px; border-left: 5px solid #165B33; border: 1px solid #ddd;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    }
-    .history-time { font-weight: bold; color: #165B33; margin-bottom: 6px; }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
-st.title("☘️ Irish Aunt Leaderboard")
+st.title("☘️ Irish Aunt Leaderboard & Behavior Log")
 st.write(
-    "Drag the ☰ handle to reorder. Place tiles together to create ties, then"
-    " hit Save!"
+    "Drag the ☰ handle to reorder (place close together for ties). Add notes"
+    " about behavior below and save your snapshot!"
 )
 
-# We handle the save state coming from the web component via query parameters safely
-if "order" in st.query_params:
-  order_str = st.query_params.get("order")
-  if order_str:
-    order_list = order_str.split(",")
-    save_history_entry(order_list)
-  st.query_params.clear()
-  st.rerun()
-
-# Irish-themed Drag-and-Drop HTML Component
-drag_drop_html = """
+# Combined Drag-and-Drop, Irish Theme, and Behavior Notes Component
+irish_app_code = """
 <!DOCTYPE html>
 <html>
 <head>
@@ -69,6 +30,8 @@ drag_drop_html = """
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
         margin: 0; padding: 10px; background-color: #F5F5DC; color: #1a1a1a; 
     }
+    .section-title { color: #165B33; border-bottom: 2px solid #D4AF37; padding-bottom: 5px; margin-top: 25px; font-size: 20px; }
+    
     .list { list-style: none; padding: 0; margin: 0 0 20px 0; }
     .item { 
         display: flex; align-items: center; justify-content: space-between;
@@ -87,12 +50,32 @@ drag_drop_html = """
     .name { flex-grow: 1; color: #222; }
     .handle { cursor: grab; font-size: 22px; color: #888; padding-left: 15px; }
     
+    .notes-container {
+        background: #ffffff; padding: 15px; border-radius: 8px;
+        border: 2px solid #165B33; margin-bottom: 20px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+    }
+    .notes-field {
+        width: 100%; padding: 10px; margin-top: 5px; margin-bottom: 12px;
+        border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box;
+        font-family: inherit; font-size: 14px;
+    }
+    .notes-label { font-weight: bold; color: #165B33; font-size: 15px; }
+
     .btn {
         background: #165B33; color: #FFFDD0; border: 2px solid #D4AF37; padding: 14px 20px;
         font-size: 16px; border-radius: 8px; cursor: pointer; width: 100%;
-        font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px;
     }
     .btn:active { background: #0b301a; }
+
+    .history-box {
+        background: #ffffff; padding: 14px; border-radius: 8px; margin-bottom: 12px;
+        font-size: 14px; border-left: 5px solid #165B33; border: 1px solid #ddd;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    .history-time { font-weight: bold; color: #165B33; margin-bottom: 6px; }
+    .history-notes { margin-top: 6px; color: #444; font-style: italic; white-space: pre-wrap; }
 </style>
 </head>
 <body>
@@ -106,14 +89,26 @@ drag_drop_html = """
     <li class="item" draggable="true"><span class="rank">6</span><span class="name">Maureen</span><span class="handle">☰</span></li>
 </ul>
 
-<button class="btn" onclick="saveSnapshot()">📸 Save Global Snapshot</button>
+<div class="notes-container">
+    <div class="notes-label">📝 Aunt Behavior Notes:</div>
+    <textarea id="behaviorNotes" class="notes-field" rows="3" placeholder="Log any notable behavior, comments, or drama today..."></textarea>
+</div>
+
+<button class="btn" onclick="saveSnapshot()">📸 Save Snapshot & Notes</button>
+
+<div class="section-title">📜 Saved Snapshot History</div>
+<div id="historyContainer"></div>
 
 <script>
     const board = document.getElementById('board');
     let dragged = null;
 
-    window.onload = function() { updateRanks(); };
+    window.onload = function() { 
+        updateRanks(); 
+        renderHistory();
+    };
 
+    // Touch and drag support for mobile
     board.addEventListener('touchstart', e => {
         if(e.target.classList.contains('handle') || e.target.closest('.handle')) {
             dragged = e.target.closest('.item');
@@ -155,6 +150,7 @@ drag_drop_html = """
         }, { offset: Number.NEGATIVE_INFINITY }).element;
     }
 
+    // Tie calculation based on vertical closeness
     function updateRanks() {
         const items = [...board.querySelectorAll('.item')];
         let currentRank = 1;
@@ -186,32 +182,46 @@ drag_drop_html = """
             currentOrder.push("#" + rank + " " + name);
         });
 
-        // Pass data cleanly out of iframe sandbox to Streamlit container
-        const encoded = encodeURIComponent(currentOrder.join(','));
-        window.top.location.href = window.location.origin + window.location.pathname + "?order=" + encoded;
+        const notes = document.getElementById('behaviorNotes').value;
+
+        const now = new Date();
+        const timeString = now.toLocaleDateString() + ' at ' + now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+
+        let history = JSON.parse(localStorage.getItem('irish_aunt_device_history') || '[]');
+        history.unshift({ time: timeString, order: currentOrder, notes: notes });
+        
+        localStorage.setItem('irish_aunt_device_history', JSON.stringify(history));
+        
+        // Clear notes field and refresh view
+        document.getElementById('behaviorNotes').value = '';
+        renderHistory();
+        alert('Snapshot & Notes saved successfully!');
+    }
+
+    function renderHistory() {
+        const container = document.getElementById('historyContainer');
+        let history = JSON.parse(localStorage.getItem('irish_aunt_device_history') || '[]');
+        
+        if (history.length === 0) {
+            container.innerHTML = '<p style="color: #666; font-style: italic;">No snapshots saved yet.</p>';
+            return;
+        }
+
+        let html = '';
+        history.forEach(entry => {
+            let notesHtml = entry.notes ? `<div class="history-notes">📝 Notes: ${entry.notes}</div>` : '';
+            html += `<div class="history-box">
+                <div class="history-time">🕒 ${entry.time}</div>
+                <div><b>Ranks:</b> ${entry.order.join(' | ')}</div>
+                ${notesHtml}
+            </div>`;
+        });
+        container.innerHTML = html;
     }
 </script>
 </body>
 </html>
 """
 
-# Render drag-and-drop component
-components.html(drag_drop_html, height=520)
-
-st.markdown("---")
-st.subheader("📜 Global History Log")
-
-history_data = load_history()
-if not history_data:
-  st.info("No snapshots saved yet.")
-else:
-  for entry in history_data:
-    st.markdown(
-        f"""
-        <div class="history-box">
-            <div class="history-time">🕒 {entry['time']}</div>
-            <div>{' | '.join(entry['order'])}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+# Render the application cleanly on Streamlit
+components.html(irish_app_code, height=850)
