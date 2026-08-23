@@ -2,6 +2,7 @@ import json
 import os
 from datetime import datetime
 import streamlit as st
+import streamlit.components.v1 as components
 
 st.set_page_config(page_title="Irish Aunt Leaderboard", layout="centered")
 
@@ -26,36 +27,15 @@ def save_history_entry(order_list):
     json.dump(history, f)
 
 
-# Irish Theme Styling
 st.markdown(
     """
     <style>
     .stApp { background-color: #F5F5DC; }
     h1 { color: #165B33; font-family: sans-serif; text-align: center; }
-    p, label { color: #1a1a1a; font-weight: 500; }
-    .stButton>button {
-        background-color: #165B33;
-        color: #FFFDD0;
-        border: 2px solid #D4AF37;
-        font-weight: bold;
-        border-radius: 8px;
-        width: 100%;
-        padding: 10px;
-    }
-    .stButton>button:hover {
-        background-color: #0b301a;
-        color: #ffffff;
-    }
+    p { color: #333; text-align: center; }
     .history-box {
-        background: #ffffff;
-        padding: 14px;
-        border-radius: 8px;
-        margin-bottom: 12px;
-        font-size: 15px;
-        border-left: 5px solid #165B33;
-        border-top: 1px solid #ddd;
-        border-right: 1px solid #ddd;
-        border-bottom: 1px solid #ddd;
+        background: #ffffff; padding: 14px; border-radius: 8px; margin-bottom: 12px;
+        font-size: 15px; border-left: 5px solid #165B33; border: 1px solid #ddd;
         box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     }
     .history-time { font-weight: bold; color: #165B33; margin-bottom: 6px; }
@@ -66,44 +46,157 @@ st.markdown(
 
 st.title("☘️ Irish Aunt Leaderboard")
 st.write(
-    "Set your ranking positions below. You can assign the same rank number to"
-    " multiple aunts to create ties!"
+    "Drag the ☰ handle to reorder. Place tiles together to create ties, then"
+    " hit Save!"
 )
 
-aunts = ["Nora", "Anne", "Janet", "Cinta", "Margo", "Maureen"]
+# We handle the save state coming from the web component via query parameters safely
+if "order" in st.query_params:
+  order_str = st.query_params.get("order")
+  if order_str:
+    order_list = order_str.split(",")
+    save_history_entry(order_list)
+  st.query_params.clear()
+  st.rerun()
 
-# Use an interactive form styled with Irish layout for absolute cross-device reliability
-with st.form("ranking_form"):
-  st.subheader("🏆 Configure Ranks")
+# Irish-themed Drag-and-Drop HTML Component
+drag_drop_html = """
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+    body { 
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+        margin: 0; padding: 10px; background-color: #F5F5DC; color: #1a1a1a; 
+    }
+    .list { list-style: none; padding: 0; margin: 0 0 20px 0; }
+    .item { 
+        display: flex; align-items: center; justify-content: space-between;
+        background: #ffffff; margin-bottom: 10px; padding: 14px 18px; 
+        border-radius: 8px; border: 2px solid #165B33;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        font-size: 18px; font-weight: bold; color: #165B33;
+        touch-action: none;
+    }
+    .item.dragging { opacity: 0.5; background: #FFFDD0; border: 2px dashed #D4AF37; }
+    
+    .rank { 
+        color: #D4AF37; background: #165B33; padding: 2px 8px; 
+        border-radius: 4px; font-size: 16px; margin-right: 15px; width: 25px; text-align: center;
+    }
+    .name { flex-grow: 1; color: #222; }
+    .handle { cursor: grab; font-size: 22px; color: #888; padding-left: 15px; }
+    
+    .btn {
+        background: #165B33; color: #FFFDD0; border: 2px solid #D4AF37; padding: 14px 20px;
+        font-size: 16px; border-radius: 8px; cursor: pointer; width: 100%;
+        font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .btn:active { background: #0b301a; }
+</style>
+</head>
+<body>
 
-  # Allow selecting positions/ties explicitly
-  col1, col2 = st.columns(2)
-  with col1:
-    r1 = st.multiselect("Rank #1", aunts, default=["Nora"])
-    r2 = st.multiselect("Rank #2", aunts, default=["Anne"])
-    r3 = st.multiselect("Rank #3", aunts, default=["Janet", "Cinta"])
-  with col2:
-    r4 = st.multiselect("Rank #4", aunts, default=[])
-    r5 = st.multiselect("Rank #5", aunts, default=["Margo"])
-    r6 = st.multiselect("Rank #6", aunts, default=["Maureen"])
+<ul class="list" id="board">
+    <li class="item" draggable="true"><span class="rank">1</span><span class="name">Nora</span><span class="handle">☰</span></li>
+    <li class="item" draggable="true"><span class="rank">2</span><span class="name">Anne</span><span class="handle">☰</span></li>
+    <li class="item" draggable="true"><span class="rank">3</span><span class="name">Janet</span><span class="handle">☰</span></li>
+    <li class="item" draggable="true"><span class="rank">4</span><span class="name">Cinta</span><span class="handle">☰</span></li>
+    <li class="item" draggable="true"><span class="rank">5</span><span class="name">Margo</span><span class="handle">☰</span></li>
+    <li class="item" draggable="true"><span class="rank">6</span><span class="name">Maureen</span><span class="handle">☰</span></li>
+</ul>
 
-  submitted = st.form_submit_button("📸 Save Global Snapshot")
+<button class="btn" onclick="saveSnapshot()">📸 Save Global Snapshot</button>
 
-  if submitted:
-    # Compile the layout into a clean structured list
-    formatted_order = []
-    for rank_num, group in enumerate(
-        [r1, r2, r3, r4, r5, r6], start=1
-    ):
-      if group:
-        formatted_order.append(f"#{rank_num}: " + ", ".join(group))
+<script>
+    const board = document.getElementById('board');
+    let dragged = null;
 
-    if formatted_order:
-      save_history_entry(formatted_order)
-      st.success("Snapshot saved globally across all devices!")
-      st.rerun()
-    else:
-      st.warning("Please assign at least one aunt to a rank.")
+    window.onload = function() { updateRanks(); };
+
+    board.addEventListener('touchstart', e => {
+        if(e.target.classList.contains('handle') || e.target.closest('.handle')) {
+            dragged = e.target.closest('.item');
+            dragged.classList.add('dragging');
+        }
+    }, {passive: true});
+
+    board.addEventListener('touchend', e => {
+        if(dragged) {
+            dragged.classList.remove('dragging');
+            updateRanks();
+            dragged = null;
+        }
+    });
+
+    board.addEventListener('touchmove', e => {
+        if(!dragged) return;
+        e.preventDefault();
+        const touch = e.touches[0];
+        const afterElement = getDragAfterElement(board, touch.clientY);
+        if (afterElement == null) {
+            board.appendChild(dragged);
+        } else {
+            board.insertBefore(dragged, afterElement);
+        }
+        updateRanks();
+    }, {passive: false});
+
+    function getDragAfterElement(container, y) {
+        const draggableElements = [...container.querySelectorAll('.item:not(.dragging)')];
+        return draggableElements.reduce((closest, child) => {
+            const box = child.getBoundingClientRect();
+            const offset = y - box.top - box.height / 2;
+            if (offset < 0 && offset > closest.offset) {
+                return { offset: offset, element: child };
+            } else {
+                return closest;
+            }
+        }, { offset: Number.NEGATIVE_INFINITY }).element;
+    }
+
+    function updateRanks() {
+        const items = [...board.querySelectorAll('.item')];
+        let currentRank = 1;
+
+        items.forEach((item, index) => {
+            const rankSpan = item.querySelector('.rank');
+            if (index > 0) {
+                const prevItem = items[index - 1];
+                const prevBox = prevItem.getBoundingClientRect();
+                const currBox = item.getBoundingClientRect();
+                
+                const distance = Math.abs((currBox.top + currBox.height/2) - (prevBox.top + prevBox.height/2));
+                if (distance < (currBox.height * 0.7)) {
+                    rankSpan.innerText = prevItem.querySelector('.rank').innerText;
+                    return;
+                }
+            }
+            rankSpan.innerText = currentRank;
+            currentRank++;
+        });
+    }
+
+    function saveSnapshot() {
+        const items = board.querySelectorAll('.item');
+        let currentOrder = [];
+        items.forEach((item) => {
+            let rank = item.querySelector('.rank').innerText;
+            let name = item.querySelector('.name').innerText;
+            currentOrder.push("#" + rank + " " + name);
+        });
+
+        // Pass data cleanly out of iframe sandbox to Streamlit container
+        const encoded = encodeURIComponent(currentOrder.join(','));
+        window.top.location.href = window.location.origin + window.location.pathname + "?order=" + encoded;
+    }
+</script>
+</body>
+</html>
+"""
+
+# Render drag-and-drop component
+components.html(drag_drop_html, height=520)
 
 st.markdown("---")
 st.subheader("📜 Global History Log")
