@@ -1,44 +1,68 @@
 import streamlit as st
 import streamlit.components.v1 as components
 
-st.set_page_config(page_title="Aunt Leaderboard", layout="centered")
+st.set_page_config(page_title="Irish Aunt Leaderboard", layout="centered")
 
-st.title("🏆 Aunt Leaderboard")
-st.write("Drag and drop to rank your aunts. Use **Save Snapshot** to log changes over time!")
+# Irish-themed header styling in Streamlit
+st.markdown(
+    """
+    <style>
+    .main { background-color: #F5F5DC; }
+    h1 { color: #165B33; font-family: sans-serif; text-align: center; }
+    p { text-align: center; color: #333; }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
-drag_and_drop_code = """
+st.title("☘️ Irish Aunt Leaderboard")
+st.write(
+    "Drag the ☰ handle to reorder. Drop items closely next to each other to"
+    " create ties!"
+)
+
+# Embedded HTML/JS component with Irish styling and auto-tie calculations
+irish_leaderboard_code = """
 <!DOCTYPE html>
 <html>
 <head>
 <style>
-    body { font-family: sans-serif; margin: 0; padding: 10px; background: white; color: #333; }
+    body { 
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+        margin: 0; padding: 10px; background-color: #F5F5DC; color: #1a1a1a; 
+    }
     .list { list-style: none; padding: 0; margin: 0 0 20px 0; }
     .item { 
         display: flex; align-items: center; justify-content: space-between;
-        background: #f8f9fa; margin-bottom: 10px; padding: 15px; 
-        border-radius: 8px; border: 1px solid #ddd;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        font-size: 18px; font-weight: bold;
+        background: #ffffff; margin-bottom: 10px; padding: 14px 18px; 
+        border-radius: 8px; border: 2px solid #165B33;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        font-size: 18px; font-weight: bold; color: #165B33;
         touch-action: none;
+        transition: background 0.2s;
     }
-    .item.dragging { opacity: 0.5; background: #e2e8f0; border: 2px dashed #4793AF; }
-    .rank { color: #888; font-size: 16px; margin-right: 15px; width: 25px; }
-    .name { flex-grow: 1; }
-    .handle { cursor: grab; font-size: 24px; color: #aaa; padding-left: 15px; }
+    .item.dragging { opacity: 0.5; background: #FFFDD0; border: 2px dashed #D4AF37; }
+    
+    .rank { 
+        color: #D4AF37; background: #165B33; padding: 2px 8px; 
+        border-radius: 4px; font-size: 16px; margin-right: 15px; width: 25px; text-align: center;
+    }
+    .name { flex-grow: 1; color: #222; }
+    .handle { cursor: grab; font-size: 22px; color: #888; padding-left: 15px; }
     
     .btn {
-        background: #007bff; color: white; border: none; padding: 12px 20px;
+        background: #165B33; color: #FFFDD0; border: 2px solid #D4AF37; padding: 12px 20px;
         font-size: 16px; border-radius: 8px; cursor: pointer; width: 100%;
-        font-weight: bold; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        font-weight: bold; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
     }
-    .btn:active { background: #0056b3; }
+    .btn:active { background: #0b301a; }
     
-    h3 { border-bottom: 2px solid #eee; padding-bottom: 5px; margin-top: 30px; }
+    h3 { color: #165B33; border-bottom: 2px solid #D4AF37; padding-bottom: 5px; margin-top: 30px; }
     .history-box {
-        background: #f1f3f5; padding: 12px; border-radius: 8px; margin-bottom: 10px;
-        font-size: 14px; border-left: 4px solid #007bff;
+        background: #ffffff; padding: 12px; border-radius: 8px; margin-bottom: 10px;
+        font-size: 14px; border-left: 5px solid #165B33; box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     }
-    .history-time { font-weight: bold; color: #555; margin-bottom: 4px; }
+    .history-time { font-weight: bold; color: #165B33; margin-bottom: 4px; }
 </style>
 </head>
 <body>
@@ -52,22 +76,23 @@ drag_and_drop_code = """
     <li class="item" draggable="true"><span class="rank">6</span><span class="name">Maureen</span><span class="handle">☰</span></li>
 </ul>
 
-<button class="btn" onclick="saveSnapshot()">📸 Save Current Ranking Snapshot</button>
+<button class="btn" onclick="saveSnapshot()">📸 Save Snapshot to History</button>
 
-<h3>📜 Ranking History</h3>
+<h3>📜 Past Changes</h3>
 <div id="historyContainer"></div>
 
 <script>
     const board = document.getElementById('board');
     let dragged = null;
 
-    // Load saved history on startup
     window.onload = function() {
+        updateRanks();
         renderHistory();
     };
 
+    // Touch Support for Mobile
     board.addEventListener('touchstart', e => {
-        if(e.target.className === 'handle') {
+        if(e.target.classList.contains('handle') || e.target.closest('.handle')) {
             dragged = e.target.closest('.item');
             dragged.classList.add('dragging');
         }
@@ -91,6 +116,7 @@ drag_and_drop_code = """
         } else {
             board.insertBefore(dragged, afterElement);
         }
+        updateRanks();
     }, {passive: false});
 
     function getDragAfterElement(container, y) {
@@ -104,37 +130,55 @@ drag_and_drop_code = """
         }, { offset: Number.NEGATIVE_INFINITY }).element;
     }
 
+    // Smart tie detection: checks if items overlap or are tightly grouped vertically
     function updateRanks() {
-        const items = board.querySelectorAll('.item');
+        const items = [...board.querySelectorAll('.item')];
+        let currentRank = 1;
+
         items.forEach((item, index) => {
-            item.querySelector('.rank').innerText = index + 1;
+            const rankSpan = item.querySelector('.rank');
+            if (index > 0) {
+                const prevItem = items[index - 1];
+                const prevBox = prevItem.getBoundingClientRect();
+                const currBox = item.getBoundingClientRect();
+                
+                // If current item center is very close to previous item center, count as a tie
+                const distance = Math.abs((currBox.top + currBox.height/2) - (prevBox.top + prevBox.height/2));
+                if (distance < (currBox.height * 0.7)) {
+                    rankSpan.innerText = prevItem.querySelector('.rank').innerText;
+                    return;
+                }
+            }
+            rankSpan.innerText = currentRank;
+            currentRank++;
         });
     }
 
     function saveSnapshot() {
         const items = board.querySelectorAll('.item');
         let currentOrder = [];
-        items.forEach((item, index) => {
+        items.forEach((item) => {
+            let rank = item.querySelector('.rank').innerText;
             let name = item.querySelector('.name').innerText;
-            currentOrder.push((index + 1) + ". " + name);
+            currentOrder.push("#" + rank + " " + name);
         });
 
         const now = new Date();
         const timeString = now.toLocaleDateString() + ' at ' + now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
 
-        let history = JSON.parse(localStorage.getItem('aunt_history') || '[]');
-        history.unshift({ time: timeString, order: currentOrder }); // Add new to top
+        let history = JSON.parse(localStorage.getItem('irish_aunt_history') || '[]');
+        history.unshift({ time: timeString, order: currentOrder });
         
-        localStorage.setItem('aunt_history', JSON.stringify(history));
+        localStorage.setItem('irish_aunt_history', JSON.stringify(history));
         renderHistory();
     }
 
     function renderHistory() {
         const container = document.getElementById('historyContainer');
-        let history = JSON.parse(localStorage.getItem('aunt_history') || '[]');
+        let history = JSON.parse(localStorage.getItem('irish_aunt_history') || '[]');
         
         if (history.length === 0) {
-            container.innerHTML = '<p style="color: #778; font-style: italic;">No snapshots saved yet.</p>';
+            container.innerHTML = '<p style="color: #666; font-style: italic;">No snapshots saved yet.</p>';
             return;
         }
 
@@ -152,5 +196,4 @@ drag_and_drop_code = """
 </html>
 """
 
-# Render in Streamlit with enough height to display history logs
-components.html(drag_and_drop_code, height=750)
+components.html(irish_leaderboard_code, height=750)
